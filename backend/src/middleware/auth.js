@@ -1,4 +1,4 @@
-﻿const jwt = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 
 const env = require("../config/env");
 const Student = require("../models/Student");
@@ -29,6 +29,24 @@ const requireAuth = asyncHandler(async (req, res, next) => {
   }
 });
 
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      throw new HttpError(401, "Authentication required.");
+    }
+
+    if (!roles.includes(req.user.role)) {
+      throw new HttpError(
+        403,
+        `Access denied. Requires one of: ${roles.join(", ")}.`
+      );
+    }
+
+    next();
+  };
+}
+
 module.exports = {
   requireAuth,
+  requireRole,
 };

@@ -1,4 +1,7 @@
-﻿const mongoose = require("mongoose");
+const dns = require("dns");
+const mongoose = require("mongoose");
+
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 const env = require("./env");
 

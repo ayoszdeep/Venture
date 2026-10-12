@@ -47,8 +47,11 @@ export const universitySpotlights = [
 ];
 
 export const assignmentSignals = [
-  "Structured backend codebase with realistic entities",
-  "Seeded data aligned to a student admission journey",
-  "Incomplete endpoints left intentionally for candidate implementation",
-  "React surface included for context and optional extension",
+  "JWT auth with bcrypt hashing and role-scoped access",
+  "Discovery APIs with filtering, sorting and pagination",
+  "Recommendation engine built on MongoDB aggregation",
+  "Application state machine with compound-unique duplicate guard",
+  "TTL caching, compound indexes and query optimisation",
+  "AI study planner grounded on the aggregation shortlist",
+  "Helmet, rate limiting, NoSQL sanitisation and Docker Compose",
 ];

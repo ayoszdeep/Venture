@@ -1,4 +1,4 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
 const { applicationStatuses } = require("../config/constants");
 
@@ -66,5 +66,7 @@ const applicationSchema = new mongoose.Schema(
 );
 
 applicationSchema.index({ student: 1, program: 1, intake: 1 }, { unique: true });
+applicationSchema.index({ student: 1, status: 1 });
+applicationSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Application", applicationSchema);

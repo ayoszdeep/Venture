@@ -201,6 +201,203 @@ body::before {
     linear-gradient(135deg, rgba(255, 250, 241, 0.94), rgba(239, 227, 205, 0.82));
 }
 
+/* ---- Live discovery explorer & AI planner ---- */
+
+.explorer,
+.planner {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.explorer-controls,
+.planner-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.explorer-controls label,
+.planner-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.explorer-controls select,
+.explorer-controls input,
+.planner-form input {
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+}
+
+.explorer-controls select:focus-visible,
+.explorer-controls input:focus-visible,
+.planner-form input:focus-visible,
+.explorer-pagination button:focus-visible,
+.planner-form button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.planner-form {
+  align-items: end;
+}
+
+.planner-form button,
+.explorer-pagination button {
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 11px 20px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #f3fbf8;
+  cursor: pointer;
+}
+
+.planner-form button:disabled,
+.explorer-pagination button:disabled {
+  background: rgba(29, 122, 101, 0.35);
+  cursor: not-allowed;
+}
+
+.explorer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.program-card {
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  border-radius: 20px;
+  padding: 20px;
+}
+
+.program-card h3 {
+  margin: 0 0 6px;
+  font-size: 1.08rem;
+}
+
+.program-card > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.program-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.program-facts dt {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.program-facts dd {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.pill {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(29, 122, 101, 0.12);
+  color: var(--accent-strong);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.explorer-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.explorer-pagination small,
+.explorer-note,
+.planner-meta {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.explorer-note {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.planner-summary {
+  margin: 12px 0 20px;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.planner-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.planner-columns h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.planner-columns ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+
+.planner-columns li {
+  margin-bottom: 10px;
+  font-size: 0.92rem;
+}
+
+.planner-columns small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .explorer-grid,
+  .planner-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .explorer,
+  .planner {
+    border-radius: 22px;
+    padding: 20px;
+  }
+}
+
 @media (max-width: 900px) {
   .hero,
   .signal-strip,

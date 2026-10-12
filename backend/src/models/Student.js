@@ -1,4 +1,4 @@
-﻿const bcrypt = require("bcryptjs");
+const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 
 const studentSchema = new mongoose.Schema(
@@ -61,5 +61,7 @@ studentSchema.pre("save", async function hashPassword(next) {
 studentSchema.methods.comparePassword = function comparePassword(password) {
   return bcrypt.compare(password, this.password);
 };
+
+studentSchema.index({ role: 1 });
 
 module.exports = mongoose.model("Student", studentSchema);
