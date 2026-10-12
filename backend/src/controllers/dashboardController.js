@@ -8,14 +8,6 @@ const asyncHandler = require("../utils/asyncHandler");
 
 const CACHE_KEY = "dashboard-overview";
 
-/**
- * Platform-wide counters for the dashboard.
- *
- * Five independent aggregations, so they are issued in parallel rather than in
- * sequence. The result is cached and the cache is dropped whenever an
- * application changes, because a counselor who just moved an application and
- * still sees the old numbers will assume the app is broken.
- */
 const getOverview = asyncHandler(async (req, res) => {
   const cachedPayload = cacheService.get(CACHE_KEY);
 

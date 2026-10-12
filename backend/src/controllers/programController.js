@@ -6,12 +6,6 @@ const {
 } = require("../services/discoveryService");
 const asyncHandler = require("../utils/asyncHandler");
 
-/**
- * GET /api/v1/programs
- *
- * Offset pagination. Simple for a client to drive ("give me page 4") and it can
- * report a total page count, which keyset pagination cannot.
- */
 const listPrograms = asyncHandler(async (req, res) => {
   const filters = buildProgramFilters(req.query);
   const sort = buildProgramSort(req.query);
@@ -35,7 +29,7 @@ const listPrograms = asyncHandler(async (req, res) => {
     success: true,
     data: items,
     meta: paginationData,
-    // Kept alongside `meta` for backwards compatibility with existing clients.
+
     pagination: paginationData,
   });
 });

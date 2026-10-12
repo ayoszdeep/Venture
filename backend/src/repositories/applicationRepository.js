@@ -1,13 +1,5 @@
 const Application = require("../models/Application");
 
-/**
- * Data access for applications.
- *
- * Every read names the fields it needs from the joined collections rather than
- * populating whole documents, so a list response does not drag a student's
- * entire profile along with it.
- */
-
 const STUDENT_FIELDS = "fullName email role";
 const PROGRAM_FIELDS = "title degreeLevel tuitionFeeUsd country";
 const UNIVERSITY_FIELDS = "name country city";
@@ -41,11 +33,6 @@ function create(applicationData) {
   return Application.create(applicationData);
 }
 
-/**
- * Moves an application to a new status and appends the matching audit entry in
- * a single atomic update, so the status and its timeline record can never
- * disagree the way a read-modify-write pair could.
- */
 function appendStatusTransition(id, { status, note }) {
   return withRelations(
     Application.findByIdAndUpdate(
@@ -63,7 +50,6 @@ function countAll() {
   return Application.countDocuments();
 }
 
-/** Seeding only. */
 function insertMany(applications) {
   return Application.insertMany(applications);
 }

@@ -1,15 +1,5 @@
 import { useState } from "react";
 
-/**
- * Demo panel for the AI study-plan bonus endpoint.
- *
- * It performs a real login against POST /api/v1/auth/login, holds the JWT in
- * component state only (never localStorage, so a reload drops it), and calls
- * GET /api/v1/ai/study-plan/:studentId with the bearer token.
- *
- * The seeded evaluation credentials are prefilled purely for reviewer
- * convenience — this panel is a demonstration surface, not a production login.
- */
 export default function StudyPlanPanel() {
   const [credentials, setCredentials] = useState({
     email: "aarav@example.com",

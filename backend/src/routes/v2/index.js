@@ -10,24 +10,12 @@ const v1RecommendationRoutes = require("../v1/recommendationRoutes");
 const v1UniversityRoutes = require("../v1/universityRoutes");
 const { authLimiter } = require("../../middleware/rateLimiter");
 
-/**
- * v2 — versioned per resource, not wholesale.
- *
- * Only `/programs` has a new contract (keyset pagination; see
- * `controllers/v2/programController.js`). Every other resource is served by the
- * v1 router, because re-exporting an unchanged handler under a new version is
- * how two copies of the same endpoint drift apart and start behaving
- * differently for no reason. When a resource does change, its own router gets
- * added to this folder and the v1 line below is dropped.
- */
 const router = express.Router();
 
 const isTestEnvironment = process.env.NODE_ENV === "test";
 
-// Changed in v2.
 router.use("/programs", programRoutes);
 
-// Unchanged from v1.
 router.use("/health", v1HealthRoutes);
 router.use(
   "/auth",

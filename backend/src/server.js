@@ -19,8 +19,6 @@ startServer().catch((error) => {
   process.exit(1);
 });
 
-// A rejected promise nobody handled would otherwise vanish silently and leave
-// the process running in a broken state.
 process.on("unhandledRejection", (reason) => {
   logger.error("Unhandled promise rejection", { reason });
 });

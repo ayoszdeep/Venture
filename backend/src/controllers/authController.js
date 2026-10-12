@@ -94,8 +94,7 @@ const login = asyncHandler(async (req, res) => {
   const student = await studentRepository.findByEmail(normalizedEmail);
 
   if (!student) {
-    // Logged as a warning because repeated misses on the same IP are the
-    // signature of credential stuffing, which the auth rate limiter caps.
+
     logger.warn("Login attempt for unknown email", { email: normalizedEmail });
     throw new HttpError(401, "Invalid email or password.");
   }

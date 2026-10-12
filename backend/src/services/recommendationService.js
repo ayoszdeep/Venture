@@ -52,7 +52,6 @@ async function buildProgramRecommendations(studentId) {
     },
   });
 
-  // Calculate matching criteria and score components
   pipeline.push({
     $addFields: {
       countryMatch: {

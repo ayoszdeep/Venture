@@ -4,26 +4,6 @@ const cacheService = require("./cacheService");
 const HttpError = require("../utils/httpError");
 const { buildProgramRecommendations } = require("./recommendationService");
 
-/**
- * AI study-plan service (bonus task)
- * -----------------------------------------------------------------------------
- * Design notes:
- *
- * - The LLM never queries the database. The deterministic MongoDB aggregation
- *   pipeline (`recommendationService`) stays the single source of truth for
- *   *which* programs are suggested; the model only turns that grounded shortlist
- *   into a human-readable, time-phased application plan. This keeps the output
- *   reproducible and prevents hallucinated universities or tuition figures.
- *
- * - Responses are cached per student (TTL from CACHE_TTL_SECONDS). LLM calls are
- *   the slowest and most expensive operation in the API, so caching matters more
- *   here than anywhere else.
- *
- * - If no GROQ_API_KEY is configured, or the provider call fails/times out, the
- *   service degrades to a rule-based planner rather than returning a 5xx. The
- *   response's `meta.generator` field always states which path produced the plan.
- */
-
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const REQUEST_TIMEOUT_MS = 20000;
 
@@ -82,11 +62,6 @@ function buildUserPrompt(student, recommendations) {
   )}`;
 }
 
-/**
- * Deterministic planner used when the LLM provider is unavailable.
- * Categorisation mirrors the aggregation match score so the fallback remains
- * consistent with the recommendation engine's own ranking.
- */
 function buildFallbackPlan(student, recommendations) {
   const studentIelts = student.englishTest?.score || 0;
   const budget = student.maxBudgetUsd || 0;
@@ -262,7 +237,6 @@ async function buildStudyPlan(studentId, { refresh = false } = {}) {
     }
   }
 
-  // Reuse the aggregation-backed recommendation engine as the grounding data.
   const { data } = await buildProgramRecommendations(studentId);
   const { student, recommendations } = data;
 
@@ -298,8 +272,6 @@ async function buildStudyPlan(studentId, { refresh = false } = {}) {
           ? "AI provider timed out; served deterministic plan instead."
           : `AI provider unavailable (${error.message}); served deterministic plan instead.`;
 
-      // Logged at warn, not error: the request succeeded from the caller's
-      // point of view. This is the line to alert on if it starts repeating.
       logger.warn("AI provider failed, served fallback study plan", {
         studentId: String(studentId),
         model: env.groqModel,

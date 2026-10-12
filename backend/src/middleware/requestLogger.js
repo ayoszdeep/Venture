@@ -1,13 +1,5 @@
 const logger = require("../config/logger");
 
-/**
- * Logs one structured line per request once the response has been sent.
- *
- * Logging on the `finish` event rather than on the way in means the status code
- * and duration are known, so a single line carries the whole story of the
- * request. Server errors log at `error`, client errors at `warn`, so a log
- * query can separate "we broke" from "the caller sent something invalid".
- */
 function requestLogger(req, res, next) {
   const startedAt = process.hrtime.bigint();
 
@@ -21,7 +13,7 @@ function requestLogger(req, res, next) {
       status: res.statusCode,
       durationMs: Number(durationMs.toFixed(1)),
       ip: req.ip,
-      // Set by the error handler, so a 4xx line says why it was rejected.
+
       ...(res.locals.errorMessage ? { reason: res.locals.errorMessage } : {}),
     };
 

@@ -282,6 +282,21 @@ Time:        10.921 s
 
 **Why `--runInBand`:** the tests share seeded fixtures and some assert on cache state. Run in parallel they'd race each other and fail for reasons that have nothing to do with the code.
 
+On top of the suite, every endpoint was exercised by hand against a running server — public, authenticated, and the error paths:
+
+```
+health              200     register (duplicate)  409     apply                 201
+universities        200     login (wrong pass)    401     apply (duplicate)     409
+popular (cached)    200     login                 200     status as student     403
+programs v1         200     me (no token)         401     invalid transition    400
+programs v2         200     me (with token)       200     valid transition      200
+programs (legacy)   200     recommendations       200     bad cursor            400
+dashboard           200     ai study plan         200     unsupported v2 sort   400
+                            ai (other student)    403     unknown route         404
+```
+
+The database was reseeded afterwards, so the data you receive is the clean seed, not leftovers from testing.
+
 ---
 
 ## 4. Bonus tasks

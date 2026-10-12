@@ -1,9 +1,5 @@
 const Program = require("../models/Program");
 
-/**
- * Data access for programs.
- */
-
 function findById(id) {
   return Program.findById(id);
 }
@@ -17,14 +13,6 @@ async function findPaginated({ filters, sort, skip, limit }) {
   return { items, total };
 }
 
-/**
- * Keyset ("cursor") page used by the v2 discovery contract.
- *
- * One extra document is fetched beyond the requested limit purely to answer
- * "is there a next page?" without a second count query. Offset pagination needs
- * `countDocuments` for that, and `skip` makes the database walk and discard
- * every earlier document; keyset pagination seeks straight into the index.
- */
 async function findByCursor({ filters, sort, limit }) {
   const items = await Program.find(filters)
     .sort(sort)
@@ -44,7 +32,6 @@ function countAll() {
   return Program.countDocuments();
 }
 
-/** Seeding only. */
 function insertMany(programs) {
   return Program.insertMany(programs);
 }

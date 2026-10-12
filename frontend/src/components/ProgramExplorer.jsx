@@ -11,11 +11,6 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 6;
 
-/**
- * Live discovery panel driving the real GET /api/v1/programs endpoint so the
- * dashboard exercises the backend's filtering, sorting and pagination contract
- * rather than rendering static sample data.
- */
 export default function ProgramExplorer() {
   const [filters, setFilters] = useState({
     country: "",

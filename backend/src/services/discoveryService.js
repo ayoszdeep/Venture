@@ -1,12 +1,3 @@
-/**
- * Shared query-building for the discovery endpoints.
- *
- * Filter and sort construction lives here rather than in the controllers so
- * that v1 (offset pagination) and v2 (keyset pagination) apply byte-identical
- * filters. Keeping two copies of this logic in two controllers is how the
- * versions quietly drift apart.
- */
-
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -16,7 +7,6 @@ function parseBoolean(value) {
   return undefined;
 }
 
-/** Case-insensitive exact match, with regex metacharacters escaped. */
 function exactInsensitive(value) {
   const escaped = String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return { $regex: new RegExp(`^${escaped}$`, "i") };
@@ -74,11 +64,6 @@ function buildProgramFilters(query) {
   return filters;
 }
 
-/**
- * Every sort ends with `_id`. Without that tiebreaker, documents with equal
- * tuition can be returned in a different order on each query, so a paginated
- * client can see the same program twice and never see another.
- */
 function buildProgramSort({ sortBy = "relevance", order = "asc" } = {}) {
   const direction = String(order).toLowerCase() === "desc" ? -1 : 1;
 

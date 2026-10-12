@@ -2,15 +2,6 @@ const winston = require("winston");
 
 const env = require("./env");
 
-/**
- * Application logger.
- *
- * - Development prints a short colourised line that is easy to scan.
- * - Production emits JSON so a log shipper (CloudWatch, Loki, Datadog) can
- *   index the fields instead of regex-parsing a message string.
- * - Tests are silent, otherwise the suite output drowns in request logs.
- */
-
 const { combine, colorize, errors, json, printf, timestamp } = winston.format;
 
 const developmentFormat = combine(

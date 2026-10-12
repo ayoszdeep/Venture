@@ -14,17 +14,14 @@ let testProgram;
 beforeAll(async () => {
   await connectDatabase();
 
-  // Find seeded test student & counselor
   const student = await Student.findOne({ email: "aarav@example.com" });
   testStudentId = student._id.toString();
 
-  // Login as student
   const studentLoginRes = await request(app)
     .post("/api/auth/login")
     .send({ email: "aarav@example.com", password: "Candidate123!" });
   studentToken = studentLoginRes.body.data.token;
 
-  // Login as counselor
   const counselorLoginRes = await request(app)
     .post("/api/auth/login")
     .send({ email: "counselor@example.com", password: "Candidate123!" });
@@ -160,11 +157,10 @@ describe("Discovery & Caching APIs", () => {
   });
 
   it("should serve cached responses on popular universities", async () => {
-    // First call (populates or accesses cache)
+
     const res1 = await request(app).get("/api/universities/popular");
     expect(res1.status).toBe(200);
 
-    // Second call should report cache hit
     const res2 = await request(app).get("/api/universities/popular");
     expect(res2.status).toBe(200);
     expect(res2.body.meta.cache).toBe("hit");
@@ -253,8 +249,7 @@ describe("v2 Cursor Pagination", () => {
   });
 
   it("should walk pages via nextCursor without repeating or skipping a program", async () => {
-    // Page the entire collection two at a time, then compare against the same
-    // set fetched in one request. Any duplicate or gap shows up here.
+
     const seen = [];
     let cursor = null;
     let guard = 0;
@@ -276,8 +271,8 @@ describe("v2 Cursor Pagination", () => {
     );
     const expected = allAtOnce.body.data.map((program) => program._id);
 
-    expect(new Set(seen).size).toBe(seen.length); // no duplicates
-    expect(seen).toEqual(expected); // same order, nothing skipped
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(seen).toEqual(expected);
   });
 
   it("should keep filters applied across cursor pages", async () => {
@@ -328,13 +323,12 @@ describe("Security Hardening", () => {
     expect(res.status).toBe(200);
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
     expect(res.headers["x-frame-options"]).toBeDefined();
-    // helmet removes the framework fingerprint header.
+
     expect(res.headers["x-powered-by"]).toBeUndefined();
   });
 
   it("should neutralise MongoDB operator injection in login payloads", async () => {
-    // Without sanitisation, `$ne: null` would match the first student document
-    // and allow an authentication bypass.
+
     const res = await request(app)
       .post("/api/auth/login")
       .send({ email: { $ne: null }, password: { $ne: null } });
@@ -382,7 +376,6 @@ describe("AI Study Planner (bonus)", () => {
     expect(plan.shortlistStrategy.length).toBe(data.recommendations.length);
     expect(plan.risks.length).toBeGreaterThan(0);
 
-    // The planner must never introduce a program outside the ranked shortlist.
     const shortlistTitles = data.recommendations.map((p) => p.title);
     expect(
       plan.shortlistStrategy.every((item) =>
@@ -461,7 +454,7 @@ describe("Application Workflow & State Machine", () => {
   });
 
   it("edge case: should reject invalid status transition with 400 Bad Request", async () => {
-    // Current status is 'submitted'. Permitted transitions: ['under-review', 'rejected']. Transitioning to 'enrolled' is invalid.
+
     const res = await request(app)
       .patch(`/api/applications/${createdAppId}/status`)
       .set("Authorization", `Bearer ${counselorToken}`)

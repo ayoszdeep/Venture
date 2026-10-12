@@ -14,7 +14,6 @@ const listApplications = asyncHandler(async (req, res) => {
   const { studentId, status } = req.query;
   const filters = {};
 
-  // Role-based filtering: students can only see their own applications
   if (req.user && req.user.role === "student") {
     filters.student = req.user._id;
   } else if (studentId) {
@@ -67,7 +66,6 @@ const createApplication = asyncHandler(async (req, res) => {
     throw new HttpError(404, "Program not found.");
   }
 
-  // Pre-check for duplicate application for (student, program, intake)
   const existingApplication = await applicationRepository.findExisting({
     student: studentId,
     program: program._id,
@@ -118,8 +116,7 @@ const createApplication = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      // The unique index caught a duplicate that slipped past the pre-check,
-      // which is what two near-simultaneous submissions look like.
+
       logger.warn("Duplicate application blocked by unique index", {
         studentId: studentId.toString(),
         programId: program._id.toString(),
@@ -162,7 +159,6 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
 
   const currentStatus = application.status;
 
-  // Enforce workflow state machine transitions
   const allowedNextStatuses = validStatusTransitions[currentStatus] || [];
   if (!allowedNextStatuses.includes(requestedStatus)) {
     throw new HttpError(

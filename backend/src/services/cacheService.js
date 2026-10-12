@@ -1,17 +1,5 @@
 const env = require("../config/env");
 
-/**
- * MemoryCacheService provides in-memory key-value caching with TTL expiration.
- *
- * Performance considerations:
- * - In-memory caching eliminates repetitive database queries and aggregation overhead
- *   for frequently accessed, relatively static endpoints like popular universities and dashboard metrics.
- * - TTL (Time-To-Live) ensures stale data is periodically evicted.
- * - Selective cache invalidation (e.g. invalidating 'dashboard-overview' on application creation/update)
- *   guarantees data consistency without waiting for TTL expiration.
- * - Tradeoff: In multi-instance deployments, an external store like Redis would be required
- *   to share cache across nodes. For single-instance or candidate evaluation, Map-based cache is optimal.
- */
 class MemoryCacheService {
   constructor() {
     this.store = new Map();

@@ -1,31 +1,12 @@
 const rateLimit = require("express-rate-limit");
 
-/**
- * Rate limiting strategy
- * -----------------------------------------------------------------------------
- * Two tiers are applied instead of one blanket limit, because auth endpoints and
- * read-heavy discovery endpoints have very different abuse profiles:
- *
- * 1. `authLimiter` (strict)  - guards /api/auth/login and /api/auth/register
- *    against credential stuffing and brute-force password guessing. Successful
- *    requests are not counted (`skipSuccessfulRequests`), so a legitimate user
- *    who logs in correctly never burns through their budget.
- *
- * 2. `apiLimiter` (generous) - protects the whole API surface from scraping and
- *    accidental client retry storms while staying far above normal usage.
- *
- * Counters are kept in memory. For a multi-replica deployment this store should
- * be swapped for the Redis store (`rate-limit-redis`) so the limit is shared
- * across instances; the middleware interface stays identical.
- */
-
 const standardMessage = (message) => ({
   success: false,
   message,
 });
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
@@ -35,7 +16,7 @@ const apiLimiter = rateLimit({
 });
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
@@ -45,12 +26,8 @@ const authLimiter = rateLimit({
   ),
 });
 
-/**
- * AI endpoints call an external LLM provider, so they are both slow and costly.
- * A tight per-IP budget prevents a single client from exhausting API quota.
- */
 const aiLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,

@@ -33,15 +33,11 @@ const listUniversities = asyncHandler(async (req, res) => {
     success: true,
     data: items,
     meta: paginationData,
-    // Kept alongside `meta` for backwards compatibility with existing clients.
+
     pagination: paginationData,
   });
 });
 
-/**
- * Cached: this list is identical for every visitor and changes rarely, so it is
- * the clearest win for a TTL cache.
- */
 const listPopularUniversities = asyncHandler(async (req, res) => {
   const cachedPayload = cacheService.get(POPULAR_CACHE_KEY);
 
