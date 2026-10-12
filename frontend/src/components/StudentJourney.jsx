@@ -12,6 +12,28 @@ const LIFECYCLE = [
 
 const INTAKE_FALLBACK = "September";
 
+const COUNTRIES = ["Canada", "UAE", "UK", "Australia"];
+
+const FIELDS = [
+  "Computer Science",
+  "Data Science",
+  "Business Analytics",
+  "Engineering Management",
+  "Project Management",
+  "International Business",
+  "Hospitality",
+];
+
+const INTAKES = ["September", "January", "May", "February", "July"];
+
+const IELTS_SCORES = ["6", "6.5", "7", "7.5", "8"];
+
+function toggleValue(list, value) {
+  return list.includes(value)
+    ? list.filter((item) => item !== value)
+    : [...list, value];
+}
+
 function Step({ number, title, subtitle, children, done }) {
   return (
     <section className={`step ${done ? "step-done" : ""}`}>
@@ -28,10 +50,22 @@ function Step({ number, title, subtitle, children, done }) {
 }
 
 export default function StudentJourney() {
+  const [mode, setMode] = useState("signup");
   const [credentials, setCredentials] = useState({
     email: "aarav@example.com",
     password: "Candidate123!",
   });
+  const [signup, setSignup] = useState(() => ({
+    fullName: "Priya Nair",
+    email: `priya_${Date.now()}@example.com`,
+    password: "StrongPass123!",
+    targetCountries: ["Canada", "UAE"],
+    interestedFields: ["Computer Science"],
+    preferredIntake: "September",
+    maxBudgetUsd: 25000,
+    ieltsScore: "7",
+  }));
+  const [authNote, setAuthNote] = useState(null);
   const [busy, setBusy] = useState("");
   const [session, setSession] = useState(null);
   const [profileStatus, setProfileStatus] = useState(0);
@@ -60,6 +94,61 @@ export default function StudentJourney() {
     }
   }
 
+  function resetJourney() {
+    setShortlist(null);
+    setAffordability(null);
+    setRecommendations(null);
+    setApplication(null);
+    setDuplicate(null);
+    setTransition(null);
+    setApplyStatus(0);
+  }
+
+  async function openSession(token, note) {
+    const profile = await api("GET", "/auth/me", { token });
+    setProfileStatus(profile.status);
+    setSession({ token, user: profile.data });
+    setAuthNote(note);
+    resetJourney();
+  }
+
+  const signUp = (event) => {
+    event.preventDefault();
+    return run("signup", async () => {
+      const anon = await api("GET", "/auth/me");
+      setAnonStatus(anon.status);
+
+      const res = await api("POST", "/auth/register", {
+        body: {
+          fullName: signup.fullName,
+          email: signup.email,
+          password: signup.password,
+          targetCountries: signup.targetCountries,
+          interestedFields: signup.interestedFields,
+          preferredIntake: signup.preferredIntake,
+          maxBudgetUsd: Number(signup.maxBudgetUsd) || 0,
+          englishTest: { exam: "IELTS", score: Number(signup.ieltsScore) },
+        },
+      });
+
+      if (!res.ok) {
+        setSession(null);
+        setAuthNote({
+          status: res.status,
+          message: res.message,
+          tone: "rejected",
+        });
+        return;
+      }
+
+      await openSession(res.data.token, {
+        status: res.status,
+        message: `Account created for ${res.data.email} — signed in with the token the registration returned, no second login needed.`,
+        tone: "created",
+      });
+    });
+  };
+
   const signIn = (event) => {
     event.preventDefault();
     return run("signin", async () => {
@@ -68,23 +157,20 @@ export default function StudentJourney() {
 
       const login = await api("POST", "/auth/login", { body: credentials });
       if (!login.ok) {
-        setError(login.message || "Login failed.");
         setSession(null);
+        setAuthNote({
+          status: login.status,
+          message: login.message,
+          tone: "rejected",
+        });
         return;
       }
 
-      const token = login.data.token;
-      const profile = await api("GET", "/auth/me", { token });
-      setProfileStatus(profile.status);
-
-      setSession({ token, user: profile.data });
-      setShortlist(null);
-      setAffordability(null);
-      setRecommendations(null);
-      setApplication(null);
-      setDuplicate(null);
-      setTransition(null);
-      setApplyStatus(0);
+      await openSession(login.data.token, {
+        status: login.status,
+        message: `Signed in as ${credentials.email}.`,
+        tone: "created",
+      });
     });
   };
 
@@ -258,37 +344,228 @@ export default function StudentJourney() {
 
       <Step
         number="1"
-        title="Sign in"
-        subtitle="Registration, login and the protected profile API — JWT plus bcrypt."
+        title="Create an account, or sign in"
+        subtitle="Registration, login and the protected profile API — JWT plus bcrypt hashing."
         done={!!session}
       >
-        <form className="planner-form" onSubmit={signIn}>
-          <label>
-            <span>Email</span>
-            <input
-              type="email"
-              value={credentials.email}
-              onChange={(e) =>
-                setCredentials({ ...credentials, email: e.target.value })
-              }
-              required
-            />
-          </label>
-          <label>
-            <span>Password</span>
-            <input
-              type="password"
-              value={credentials.password}
-              onChange={(e) =>
-                setCredentials({ ...credentials, password: e.target.value })
-              }
-              required
-            />
-          </label>
-          <button type="submit" disabled={busy === "signin"}>
-            {busy === "signin" ? "Signing in…" : "Sign in"}
+        <div className="tab-row">
+          <button
+            type="button"
+            className={`tab ${mode === "signup" ? "tab-active" : ""}`}
+            onClick={() => setMode("signup")}
+          >
+            Create account
           </button>
-        </form>
+          <button
+            type="button"
+            className={`tab ${mode === "signin" ? "tab-active" : ""}`}
+            onClick={() => setMode("signin")}
+          >
+            Sign in
+          </button>
+        </div>
+
+        {mode === "signup" && (
+          <form className="signup-form" onSubmit={signUp}>
+            <div className="field-row">
+              <label>
+                <span>Full name</span>
+                <input
+                  type="text"
+                  value={signup.fullName}
+                  onChange={(e) =>
+                    setSignup({ ...signup, fullName: e.target.value })
+                  }
+                  required
+                />
+              </label>
+              <label>
+                <span>Email</span>
+                <input
+                  type="email"
+                  value={signup.email}
+                  onChange={(e) =>
+                    setSignup({ ...signup, email: e.target.value })
+                  }
+                  required
+                />
+              </label>
+              <label>
+                <span>Password (min 8 characters)</span>
+                <input
+                  type="password"
+                  value={signup.password}
+                  onChange={(e) =>
+                    setSignup({ ...signup, password: e.target.value })
+                  }
+                  required
+                />
+              </label>
+            </div>
+
+            <fieldset className="chooser">
+              <legend>Where do you want to study?</legend>
+              <div className="choice-row">
+                {COUNTRIES.map((country) => (
+                  <label key={country} className="choice">
+                    <input
+                      type="checkbox"
+                      checked={signup.targetCountries.includes(country)}
+                      onChange={() =>
+                        setSignup({
+                          ...signup,
+                          targetCountries: toggleValue(
+                            signup.targetCountries,
+                            country
+                          ),
+                        })
+                      }
+                    />
+                    <span>{country}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="chooser">
+              <legend>What do you want to study?</legend>
+              <div className="choice-row">
+                {FIELDS.map((field) => (
+                  <label key={field} className="choice">
+                    <input
+                      type="checkbox"
+                      checked={signup.interestedFields.includes(field)}
+                      onChange={() =>
+                        setSignup({
+                          ...signup,
+                          interestedFields: toggleValue(
+                            signup.interestedFields,
+                            field
+                          ),
+                        })
+                      }
+                    />
+                    <span>{field}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="field-row">
+              <label>
+                <span>Budget (USD)</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="500"
+                  value={signup.maxBudgetUsd}
+                  onChange={(e) =>
+                    setSignup({ ...signup, maxBudgetUsd: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                <span>IELTS score</span>
+                <select
+                  value={signup.ieltsScore}
+                  onChange={(e) =>
+                    setSignup({ ...signup, ieltsScore: e.target.value })
+                  }
+                >
+                  {IELTS_SCORES.map((score) => (
+                    <option key={score} value={score}>
+                      {score}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Preferred intake</span>
+                <select
+                  value={signup.preferredIntake}
+                  onChange={(e) =>
+                    setSignup({ ...signup, preferredIntake: e.target.value })
+                  }
+                >
+                  {INTAKES.map((intake) => (
+                    <option key={intake} value={intake}>
+                      {intake}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <p className="explorer-note">
+              These preferences are what the recommendation engine scores
+              against in step 4 — country, field, budget, intake and IELTS.
+            </p>
+
+            <button type="submit" disabled={busy === "signup"}>
+              {busy === "signup" ? "Creating account…" : "Create account"}
+            </button>
+          </form>
+        )}
+
+        {mode === "signin" && (
+          <form className="planner-form" onSubmit={signIn}>
+            <label>
+              <span>Email</span>
+              <input
+                type="email"
+                value={credentials.email}
+                onChange={(e) =>
+                  setCredentials({ ...credentials, email: e.target.value })
+                }
+                required
+              />
+            </label>
+            <label>
+              <span>Password</span>
+              <input
+                type="password"
+                value={credentials.password}
+                onChange={(e) =>
+                  setCredentials({ ...credentials, password: e.target.value })
+                }
+                required
+              />
+            </label>
+            <button type="submit" disabled={busy === "signin"}>
+              {busy === "signin" ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+        )}
+
+        {authNote && (
+          <div className="step-result">
+            <div className="chip-row">
+              <StatusChip
+                status={authNote.status}
+                label={
+                  authNote.tone === "created"
+                    ? mode === "signup"
+                      ? "POST /auth/register"
+                      : "POST /auth/login"
+                    : "rejected by the server"
+                }
+              />
+            </div>
+            <p className="explorer-note">{authNote.message}</p>
+            {authNote.tone === "rejected" && authNote.status === 409 && (
+              <p className="explorer-note">
+                Change the email and try again — duplicate accounts are blocked
+                by a unique index on the students collection.
+              </p>
+            )}
+            {authNote.tone === "rejected" && authNote.status === 400 && (
+              <p className="explorer-note">
+                Passwords shorter than 8 characters are rejected before anything
+                touches the database.
+              </p>
+            )}
+          </div>
+        )}
 
         {session && (
           <div className="step-result">
