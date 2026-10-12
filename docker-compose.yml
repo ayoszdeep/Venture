@@ -27,6 +27,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-change-me}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
+      # Containers log JSON in production mode so a log shipper can index it.
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       # Optional. Unset simply means the AI endpoint serves its rule-based plan.
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}

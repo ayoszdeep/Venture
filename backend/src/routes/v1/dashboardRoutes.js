@@ -1,6 +1,6 @@
 ﻿const express = require("express");
 
-const { getOverview } = require("../controllers/dashboardController");
+const { getOverview } = require("../../controllers/dashboardController");
 
 const router = express.Router();
 

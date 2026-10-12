@@ -4,7 +4,7 @@
 
 A study-abroad platform backend: students discover universities, compare programs, get recommendations, and track their application through to enrolment. Node.js + Express + MongoDB, with the React dashboard wired to the real endpoints.
 
-All 6 required tasks are done, plus all 4 bonus tasks. 26 Jest/Supertest tests pass.
+All 6 required tasks are done, plus all 4 bonus tasks. 35 Jest/Supertest tests pass.
 
 ---
 
@@ -35,6 +35,7 @@ Everything lives in `backend/.env`. Only the first two really matter — the res
 | `PORT` | No | `4000` | Backend port. |
 | `JWT_EXPIRES_IN` | No | `1d` | How long a login lasts. |
 | `CACHE_TTL_SECONDS` | No | `300` | How long cached responses stay fresh. |
+| `LOG_LEVEL` | No | `info` | Winston log level: `error`, `warn`, `info`, `debug`. |
 | `GROQ_API_KEY` | No | empty | Turns on real AI study plans. **Leave it empty and nothing breaks** — the AI endpoint falls back to a rule-based plan. |
 | `GROQ_MODEL` | No | `openai/gpt-oss-120b` | Which Groq model to use. |
 | `REDIS_URL` | No | empty | Not used yet. Placeholder for swapping the cache to Redis. |
@@ -53,8 +54,10 @@ JWT_SECRET=any-long-random-string
 ```bash
 cd backend && npm run dev      # http://localhost:4000
 cd frontend && npm run dev     # http://localhost:5173
-cd backend && npm test         # 26 tests
+cd backend && npm test         # 35 tests
 ```
+
+Endpoints are versioned: `/api/v1/...` and `/api/v2/...`. The old unprefixed paths (`/api/programs`) still work and point at v1.
 
 Or the whole stack (Mongo included) in Docker:
 
@@ -79,27 +82,92 @@ Students see only their own data. Counselors can see everyone's and are the only
 
 Short version of each piece: what it does, how I checked it, and why I did it that way.
 
-### Auth (`/api/auth`)
+### Versioned routes (`routes/v1`, `routes/v2`)
+
+Each version is a folder with an `index.js` that mounts that version's resources. `routes/index.js` mounts the versions themselves, so `app.js` has one line of routing and doesn't need to know how many versions exist.
+
+```
+routes/
+  index.js        mounts /v1, /v2, and the legacy unprefixed paths
+  v1/index.js     health, auth, universities, programs, recommendations,
+  v1/*Routes.js   applications, dashboard, ai
+  v2/index.js     programs (new contract) + the rest reused from v1
+  v2/programRoutes.js
+```
+
+**Tested with:** `npm test` — 4 tests covering v1, v2, the legacy alias, and a 404
+
+```
+GET /api/v1/programs    200  → offset pagination, meta.page present
+GET /api/programs       200  → identical results to v1 (legacy alias)
+GET /api/v2/universities 200 → served by the v1 handler
+GET /api/v2/nonexistent 404
+```
+
+**Why v2 only re-implements programs:** v2 serves `/programs` from its own controller and everything else from the v1 router. Copying unchanged handlers into a v2 folder is how two versions of the same endpoint slowly start behaving differently for no reason. When a resource actually changes, it gets its own file in `v2/` and the v1 line is removed.
+
+**Why the unprefixed paths still work:** `/api/programs` shipped before versioning existed. Breaking those URLs to tidy the routing table would be a bad trade, so they're an alias for v1.
+
+### Repository layer (`repositories/`)
+
+Every Mongoose call in the codebase lives in this folder — one file per collection, plus an `index.js`. Controllers and services import repositories, never models.
+
+**Tested with:** `npm test` (all 35 pass after the move) plus a grep that nothing outside the folder touches a model:
+
+```
+$ grep -rn "require(.*models/" src --include=*.js | grep -v "^src/models/" | grep -v "^src/repositories/"
+NONE - all DB access goes through repositories
+```
+
+**Why:** a controller should read as "validate input, call this, shape the response" without the reader needing to know MongoDB. It also puts each collection's query details in one place — the `populate` field lists, `.lean()` calls, and the parallel count+fetch pattern are decisions made once per collection instead of being retyped at each call site. The status transition is a good example: `appendStatusTransition` does the `$set` and the timeline `$push` in one atomic update, so the status and its audit entry can't disagree the way a read-modify-write pair could.
+
+Read paths return `.lean()` objects. `findByEmail` and `create` deliberately return real Mongoose documents, because the password-hashing hook and `comparePassword()` live on the model.
+
+### Logging (Winston)
+
+One structured line per request, logged on response finish so the status and duration are known. Server errors log at `error` with a stack, client errors at `warn`, and the error handler passes the rejection reason to the request logger so a failed request produces one line, not two. Dev prints a readable line; production prints JSON; tests are silent.
+
+**Tested with:** `node src/server.js`, then a few requests
+
+```
+23:40:43 info  GET /api/v1/programs?limit=2 200 71.6ms {"method":"GET","status":200,"durationMs":71.6,"ip":"::1"}
+23:40:43 warn  GET /api/v2/programs?cursor=garbage 400 2.6ms {"status":400,"reason":"Invalid cursor. Pass the `nextCursor` value..."}
+23:40:43 warn  Login attempt for unknown email {"email":"nope@example.com"}
+```
+
+And with `NODE_ENV=production`:
+
+```json
+{"durationMs":1.5,"ip":"::1","level":"warn","message":"GET /api/v2/programs?cursor=bad 400 1.5ms","reason":"Invalid cursor...","status":400,"timestamp":"2026-10-12T18:13:00.821Z"}
+```
+
+**Why JSON in production:** a log shipper can index `status`, `durationMs` and `reason` as fields. Grepping a formatted message string for the same information works until the message wording changes.
+
+**Why silent in tests:** 35 tests' worth of request logs bury the actual test output.
+
+**Why failed logins log at `warn`:** repeated misses from one IP are the signature of credential stuffing, which is what the auth rate limiter caps. That's worth being able to query for.
+
+### Auth (`/api/v1/auth`)
 
 Register, login, and a protected `GET /api/auth/me`. Passwords are bcrypt-hashed in a Mongoose `pre("save")` hook, so hashing can't be forgotten at a call site. Tokens are JWTs, verified on every request against a live DB lookup.
 
 **Tested with:** `npm test`
 
 ```
-POST /api/auth/register  201   → token returned, password field absent
-POST /api/auth/register  409   → duplicate email rejected
-POST /api/auth/register  400   → password under 8 chars rejected
-POST /api/auth/login     401   → wrong password rejected
-GET  /api/auth/me        401   → no token rejected
+POST /api/v1/auth/register  201   → token returned, password field absent
+POST /api/v1/auth/register  409   → duplicate email rejected
+POST /api/v1/auth/register  400   → password under 8 chars rejected
+POST /api/v1/auth/login     401   → wrong password rejected
+GET  /api/v1/auth/me        401   → no token rejected
 ```
 
 **Why:** registration hard-codes `role: "student"`. If the role came from the request body, anyone could register themselves as a counselor and start approving applications.
 
-### Discovery (`/api/universities`, `/api/programs`)
+### Discovery (`/api/v1/universities`, `/api/v1/programs`)
 
 Filter by country, field, degree level, intake, budget, scholarship, plus free-text search. Sorting and pagination on both.
 
-**Tested with:** `curl "localhost:4000/api/programs?country=Canada&maxBudget=30000&sortBy=tuitionAsc&limit=3"`
+**Tested with:** `curl "localhost:4000/api/v1/programs?country=Canada&maxBudget=30000&sortBy=tuitionAsc&limit=3"`
 
 ```
 meta: {"page":1,"limit":3,"total":3,"totalPages":1}
@@ -110,7 +178,30 @@ Master of Applied Computing               | $22800
 
 **Why:** every response is the same shape — `{ success, data, meta }` — so the frontend never has to special-case an endpoint. `limit` is capped at 50 server-side so no client can ask for the whole collection, and every sort ends with `_id` as a tiebreaker, otherwise documents with equal tuition can shuffle between pages and you'd see the same program twice.
 
-### Recommendations (`/api/recommendations/:studentId`)
+Filter and sort building lives in `services/discoveryService.js` so v1 and v2 apply identical filters — two copies of that logic in two controllers is how versions quietly drift apart.
+
+### Discovery v2 — cursor pagination (`/api/v2/programs`)
+
+Same filters, different pagination. `?cursor=<nextCursor>&limit=10` instead of `?page=2`, and the response carries `nextCursor` / `hasMore` instead of `page` / `total` / `totalPages`. Sorts: `tuitionAsc` (default), `tuitionDesc`, `name`, `ielts`, `newest`.
+
+**Tested with:** 6 tests, including one that walks the whole collection two at a time and compares it against the same set fetched in a single request
+
+```
+GET /api/v2/programs?limit=2                 200  → meta.pagination "cursor", nextCursor set
+                                                    meta.page / meta.total absent
+cursor walk (limit=2, tuitionAsc)                 → no duplicates, nothing skipped,
+                                                    same order as a single limit=50 fetch
+GET /api/v2/programs?cursor=not-a-real-cursor 400 → "Invalid cursor..."
+GET /api/v2/programs?sortBy=relevance         400 → "Unsupported sortBy..."
+```
+
+**Why a new version instead of changing v1:** `page` stops being a valid parameter and `total`/`totalPages` disappear from the response. Any client reading those fields breaks — which is exactly what a version boundary is for.
+
+**Why cursors at all:** `skip` makes MongoDB walk and discard every preceding document, so page 500 costs far more than page 1, while a cursor seeks straight into the index. Offset pages are also unstable under writes: insert a cheaper program while a student is paging through tuition-sorted results and every later page shifts by one, so they see a duplicate and miss another. A cursor anchors to a document, so the boundary can't drift. It also drops the `countDocuments` round trip — `hasMore` comes from fetching one extra row.
+
+**Why v2 refuses `sortBy=relevance`:** a cursor has to encode the whole sort key to resume correctly. v1's relevance sort has three keys (scholarship, tuition, id), and a two-part cursor can't express a resume point inside it without silently skipping the documents that tie on the first key. v2 offers only the sorts it can paginate correctly rather than shipping a cursor that's subtly wrong.
+
+### Recommendations (`/api/v1/recommendations/:studentId`)
 
 One MongoDB aggregation pipeline. It matches on the student's target countries, joins the university, then scores each program and returns the top 5 with the reasons it matched.
 
@@ -135,18 +226,18 @@ Weights: country 35, field 30, budget 20, intake 10, IELTS 5.
 
 **Why:** the scoring happens inside MongoDB (`$addFields`, `$cond`, `$filter`), not in Node. Pulling every program into memory to sort it there would stop working the moment the catalogue grows. The `$match` on country runs *before* the `$lookup`, so the join only touches programs that already passed the filter. And each result carries its own `reasons` — a student asking "why this one?" deserves an answer, not a number.
 
-### Applications (`/api/applications`)
+### Applications (`/api/v1/applications`)
 
 Apply to a program, then move through: `draft → submitted → under-review → offer-received → visa-processing → enrolled`, with `rejected` reachable from any live stage. `enrolled` and `rejected` are final. Every change appends to a `timeline` array with who, when, and a note.
 
 **Tested with:** `npm test`
 
 ```
-POST  /api/applications               201  → timeline has 1 entry
-POST  /api/applications               409  → duplicate (same student+program+intake)
-PATCH /api/applications/:id/status    403  → student tried to approve their own
-PATCH /api/applications/:id/status    400  → "Cannot transition from submitted to enrolled"
-PATCH /api/applications/:id/status    200  → counselor moved it, timeline now has 2 entries
+POST  /api/v1/applications               201  → timeline has 1 entry
+POST  /api/v1/applications               409  → duplicate (same student+program+intake)
+PATCH /api/v1/applications/:id/status    403  → student tried to approve their own
+PATCH /api/v1/applications/:id/status    400  → "Cannot transition from submitted to enrolled"
+PATCH /api/v1/applications/:id/status    200  → counselor moved it, timeline now has 2 entries
 ```
 
 **Why two duplicate checks:** the code checks first so the student gets a readable message, but a unique index on `{ student, program, intake }` backs it up. Two near-simultaneous clicks would both pass the code check and both insert — the index is what actually makes that impossible, and the `11000` error is caught and returned as a clean 409.
@@ -179,14 +270,14 @@ Other query work: `.lean()` on read-only paths to skip document hydration, `.pop
 
 ### Tests
 
-26 Jest + Supertest tests against a seeded database, covering happy paths and the edge cases — duplicates, bad transitions, wrong roles, missing tokens, malformed IDs.
+35 Jest + Supertest tests against a seeded database, covering happy paths and the edge cases — duplicates, bad transitions, wrong roles, missing tokens, malformed IDs, bad cursors, unsupported sorts.
 
 **Tested with:** `npm test`
 
 ```
 Test Suites: 1 passed, 1 total
-Tests:       26 passed, 26 total
-Time:        14.974 s
+Tests:       35 passed, 35 total
+Time:        10.921 s
 ```
 
 **Why `--runInBand`:** the tests share seeded fixtures and some assert on cache state. Run in parallel they'd race each other and fail for reasons that have nothing to do with the code.
@@ -195,7 +286,7 @@ Time:        14.974 s
 
 ## 4. Bonus tasks
 
-### AI study planner (`GET /api/ai/study-plan/:studentId`)
+### AI study planner (`GET /api/v1/ai/study-plan/:studentId`)
 
 Returns a phased plan: shortlist strategy (ambitious / balanced / safe), a month-by-month timeline, test prep, budget notes, and risks.
 
@@ -271,6 +362,8 @@ Live platform totals, a **Program Explorer** driving the real `/api/programs` wi
 8. **Seed first.** The tests and the dashboard both expect seeded data. `npm run seed` is safe to re-run.
 9. **The dashboard's planner panel prefills the seeded student's login** so you can click it without typing. The token is kept in component state only, never in `localStorage`.
 10. **No secrets in the repo.** `backend/.env` is gitignored; `.env.example` lists every variable with no values. Add your own `GROQ_API_KEY` to see real AI plans — or don't, and the fallback planner answers instead.
+11. **Versioning is per resource, not per release.** v2 only changes `/programs`; everything else in v2 is the v1 handler. The unprefixed `/api/<resource>` paths remain as a v1 alias so nothing that already integrated breaks.
+12. **Logs go to stdout only.** No file transport or log shipper is configured — in a container that's the right default, since the platform collects stdout.
 
 ---
 
@@ -278,15 +371,22 @@ Live platform totals, a **Program Explorer** driving the real `/api/programs` wi
 
 ```
 backend/src
-  config/       env, constants (status transition table)
-  controllers/  request handling and validation
-  services/     recommendation pipeline, cache, AI planner
-  models/       Mongoose schemas and indexes
-  middleware/   auth, roles, rate limiting, errors
-  routes/       endpoint wiring
-  data/         seed data
-frontend/src    React dashboard
+  config/         env, logger (winston), constants (status transition table)
+  routes/
+    index.js      mounts the versions
+    v1/index.js   v1 resources
+    v2/index.js   v2 resources
+  controllers/    request handling and validation
+    v2/           handlers whose contract changed in v2
+  services/       recommendation pipeline, cache, AI planner, query building
+  repositories/   all MongoDB access, one file per collection
+  models/         Mongoose schemas and indexes
+  middleware/     auth, roles, rate limiting, request logging, errors
+  data/           seed data
+frontend/src      React dashboard
 docker-compose.yml
 ```
 
-Controllers handle HTTP, services hold the logic worth testing on its own. The recommendation pipeline and the AI planner are services for exactly that reason — the fallback planner is unit-tested without going through an HTTP request at all.
+The layering is: **routes** pick a handler, **controllers** validate input and shape the response, **services** hold the logic worth testing on its own, **repositories** talk to MongoDB. Nothing above the repository layer imports a model.
+
+The recommendation pipeline and the AI planner are services for exactly that reason — the fallback planner is unit-tested without going through an HTTP request at all.

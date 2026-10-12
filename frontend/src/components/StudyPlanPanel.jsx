@@ -3,9 +3,9 @@ import { useState } from "react";
 /**
  * Demo panel for the AI study-plan bonus endpoint.
  *
- * It performs a real login against POST /api/auth/login, holds the JWT in
+ * It performs a real login against POST /api/v1/auth/login, holds the JWT in
  * component state only (never localStorage, so a reload drops it), and calls
- * GET /api/ai/study-plan/:studentId with the bearer token.
+ * GET /api/v1/ai/study-plan/:studentId with the bearer token.
  *
  * The seeded evaluation credentials are prefilled purely for reviewer
  * convenience — this panel is a demonstration surface, not a production login.
@@ -30,7 +30,7 @@ export default function StudyPlanPanel() {
     setError("");
 
     try {
-      const loginResponse = await fetch("/api/auth/login", {
+      const loginResponse = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
@@ -43,7 +43,7 @@ export default function StudyPlanPanel() {
 
       const { token, user } = loginJson.data;
 
-      const planResponse = await fetch(`/api/ai/study-plan/${user.id}`, {
+      const planResponse = await fetch(`/api/v1/ai/study-plan/${user.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const planJson = await planResponse.json();

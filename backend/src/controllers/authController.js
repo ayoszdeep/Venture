@@ -1,7 +1,8 @@
 const jwt = require("jsonwebtoken");
 
 const env = require("../config/env");
-const Student = require("../models/Student");
+const logger = require("../config/logger");
+const { studentRepository } = require("../repositories");
 const asyncHandler = require("../utils/asyncHandler");
 const HttpError = require("../utils/httpError");
 
@@ -36,12 +37,12 @@ const register = asyncHandler(async (req, res) => {
     throw new HttpError(400, "Password must be at least 8 characters long.");
   }
 
-  const existingStudent = await Student.findOne({ email: normalizedEmail });
+  const existingStudent = await studentRepository.findByEmail(normalizedEmail);
   if (existingStudent) {
     throw new HttpError(409, "User with this email already exists.");
   }
 
-  const newStudent = await Student.create({
+  const newStudent = await studentRepository.create({
     fullName: displayName,
     email: normalizedEmail,
     password,
@@ -62,6 +63,11 @@ const register = asyncHandler(async (req, res) => {
     env.jwtSecret,
     { expiresIn: env.jwtExpiresIn }
   );
+
+  logger.info("Student registered", {
+    studentId: newStudent._id.toString(),
+    email: newStudent.email,
+  });
 
   res.status(201).json({
     success: true,
@@ -85,14 +91,20 @@ const login = asyncHandler(async (req, res) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const student = await Student.findOne({ email: normalizedEmail });
+  const student = await studentRepository.findByEmail(normalizedEmail);
 
   if (!student) {
+    // Logged as a warning because repeated misses on the same IP are the
+    // signature of credential stuffing, which the auth rate limiter caps.
+    logger.warn("Login attempt for unknown email", { email: normalizedEmail });
     throw new HttpError(401, "Invalid email or password.");
   }
 
   const isPasswordValid = await student.comparePassword(password);
   if (!isPasswordValid) {
+    logger.warn("Login attempt with invalid password", {
+      studentId: student._id.toString(),
+    });
     throw new HttpError(401, "Invalid email or password.");
   }
 

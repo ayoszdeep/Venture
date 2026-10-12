@@ -1,10 +1,11 @@
 const mongoose = require("mongoose");
-const Application = require("../models/Application");
-const Program = require("../models/Program");
+
+const logger = require("../config/logger");
 const {
   applicationStatuses,
   validStatusTransitions,
 } = require("../config/constants");
+const { applicationRepository, programRepository } = require("../repositories");
 const cacheService = require("../services/cacheService");
 const asyncHandler = require("../utils/asyncHandler");
 const HttpError = require("../utils/httpError");
@@ -30,12 +31,7 @@ const listApplications = asyncHandler(async (req, res) => {
     filters.status = status;
   }
 
-  const applications = await Application.find(filters)
-    .populate("student", "fullName email role")
-    .populate("program", "title degreeLevel tuitionFeeUsd country")
-    .populate("university", "name country city")
-    .sort({ createdAt: -1 })
-    .lean();
+  const applications = await applicationRepository.findMany(filters);
 
   res.json({
     success: true,
@@ -66,13 +62,13 @@ const createApplication = asyncHandler(async (req, res) => {
     throw new HttpError(400, "Initial application status must be 'draft' or 'submitted'.");
   }
 
-  const program = await Program.findById(programId);
+  const program = await programRepository.findById(programId);
   if (!program) {
     throw new HttpError(404, "Program not found.");
   }
 
   // Pre-check for duplicate application for (student, program, intake)
-  const existingApplication = await Application.findOne({
+  const existingApplication = await applicationRepository.findExisting({
     student: studentId,
     program: program._id,
     intake,
@@ -86,7 +82,7 @@ const createApplication = asyncHandler(async (req, res) => {
   }
 
   try {
-    const application = await Application.create({
+    const application = await applicationRepository.create({
       student: studentId,
       program: program._id,
       university: program.university,
@@ -102,12 +98,18 @@ const createApplication = asyncHandler(async (req, res) => {
       ],
     });
 
-    const populatedApplication = await Application.findById(application._id)
-      .populate("student", "fullName email role")
-      .populate("program", "title degreeLevel tuitionFeeUsd country")
-      .populate("university", "name country city");
+    const populatedApplication =
+      await applicationRepository.findByIdWithRelations(application._id);
 
     cacheService.delete("dashboard-overview");
+
+    logger.info("Application created", {
+      applicationId: application._id.toString(),
+      studentId: studentId.toString(),
+      programId: program._id.toString(),
+      intake,
+      status,
+    });
 
     res.status(201).json({
       success: true,
@@ -116,6 +118,13 @@ const createApplication = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     if (error.code === 11000) {
+      // The unique index caught a duplicate that slipped past the pre-check,
+      // which is what two near-simultaneous submissions look like.
+      logger.warn("Duplicate application blocked by unique index", {
+        studentId: studentId.toString(),
+        programId: program._id.toString(),
+        intake,
+      });
       throw new HttpError(
         409,
         `Duplicate application detected for ${program.title} (${intake}).`
@@ -146,7 +155,7 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
     );
   }
 
-  const application = await Application.findById(id);
+  const application = await applicationRepository.findById(id);
   if (!application) {
     throw new HttpError(404, "Application not found.");
   }
@@ -170,26 +179,24 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
       req.user.fullName || req.user.email
     }`;
 
-  application.status = requestedStatus;
-  application.timeline.push({
+  const updated = await applicationRepository.appendStatusTransition(id, {
     status: requestedStatus,
     note: transitionNote,
-    changedAt: new Date(),
   });
 
-  await application.save();
-
-  const populated = await Application.findById(application._id)
-    .populate("student", "fullName email role")
-    .populate("program", "title degreeLevel tuitionFeeUsd country")
-    .populate("university", "name country city");
-
   cacheService.delete("dashboard-overview");
+
+  logger.info("Application status transitioned", {
+    applicationId: id,
+    from: currentStatus,
+    to: requestedStatus,
+    actorId: req.user._id.toString(),
+  });
 
   res.json({
     success: true,
     message: "Application status updated successfully",
-    data: populated,
+    data: updated,
   });
 });
 

@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 
 const env = require("../config/env");
-const Student = require("../models/Student");
+const { studentRepository } = require("../repositories");
 const asyncHandler = require("../utils/asyncHandler");
 const HttpError = require("../utils/httpError");
 
@@ -16,7 +16,11 @@ const requireAuth = asyncHandler(async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, env.jwtSecret);
-    const student = await Student.findById(decoded.sub).select("-password");
+    // Checked against the database on every request, so a token belonging to a
+    // deleted account stops working immediately rather than at expiry.
+    const student = await studentRepository.findByIdWithoutPassword(
+      decoded.sub
+    );
 
     if (!student) {
       throw new HttpError(401, "Authenticated user no longer exists.");

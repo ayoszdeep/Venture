@@ -202,6 +202,125 @@ describe("Recommendation Engine (MongoDB Aggregation Pipeline)", () => {
   });
 });
 
+describe("API Versioning", () => {
+  it("should serve v1 under its explicit prefix with offset pagination", async () => {
+    const res = await request(app).get("/api/v1/programs?page=1&limit=2");
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.meta.page).toBe(1);
+    expect(res.body.meta.totalPages).toBeGreaterThan(0);
+  });
+
+  it("should keep the legacy unversioned path working as an alias for v1", async () => {
+    const [legacy, versioned] = await Promise.all([
+      request(app).get("/api/programs?limit=2&sortBy=tuitionAsc"),
+      request(app).get("/api/v1/programs?limit=2&sortBy=tuitionAsc"),
+    ]);
+
+    expect(legacy.status).toBe(200);
+    expect(legacy.body.data.map((p) => p._id)).toEqual(
+      versioned.body.data.map((p) => p._id)
+    );
+  });
+
+  it("should serve resources unchanged in v2 from the v1 handlers", async () => {
+    const res = await request(app).get("/api/v2/universities?limit=2");
+
+    expect(res.status).toBe(200);
+    expect(res.body.meta.page).toBe(1);
+  });
+
+  it("edge case: should 404 an unknown route with the method and path", async () => {
+    const res = await request(app).get("/api/v2/nonexistent");
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain("/api/v2/nonexistent");
+  });
+});
+
+describe("v2 Cursor Pagination", () => {
+  it("should return a cursor envelope instead of page/total", async () => {
+    const res = await request(app).get("/api/v2/programs?limit=2");
+
+    expect(res.status).toBe(200);
+    expect(res.body.meta.apiVersion).toBe("v2");
+    expect(res.body.meta.pagination).toBe("cursor");
+    expect(res.body.meta.count).toBeLessThanOrEqual(2);
+    expect(res.body.meta.page).toBeUndefined();
+    expect(res.body.meta.total).toBeUndefined();
+  });
+
+  it("should walk pages via nextCursor without repeating or skipping a program", async () => {
+    // Page the entire collection two at a time, then compare against the same
+    // set fetched in one request. Any duplicate or gap shows up here.
+    const seen = [];
+    let cursor = null;
+    let guard = 0;
+
+    do {
+      const url = `/api/v2/programs?limit=2&sortBy=tuitionAsc${
+        cursor ? `&cursor=${cursor}` : ""
+      }`;
+      const res = await request(app).get(url);
+
+      expect(res.status).toBe(200);
+      seen.push(...res.body.data.map((program) => program._id));
+      cursor = res.body.meta.nextCursor;
+      guard += 1;
+    } while (cursor && guard < 25);
+
+    const allAtOnce = await request(app).get(
+      "/api/v2/programs?limit=50&sortBy=tuitionAsc"
+    );
+    const expected = allAtOnce.body.data.map((program) => program._id);
+
+    expect(new Set(seen).size).toBe(seen.length); // no duplicates
+    expect(seen).toEqual(expected); // same order, nothing skipped
+  });
+
+  it("should keep filters applied across cursor pages", async () => {
+    const res = await request(app).get(
+      "/api/v2/programs?country=Canada&limit=1&sortBy=tuitionAsc"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.every((p) => p.country === "Canada")).toBe(true);
+
+    if (res.body.meta.nextCursor) {
+      const next = await request(app).get(
+        `/api/v2/programs?country=Canada&limit=1&sortBy=tuitionAsc&cursor=${res.body.meta.nextCursor}`
+      );
+
+      expect(next.status).toBe(200);
+      expect(next.body.data.every((p) => p.country === "Canada")).toBe(true);
+      expect(next.body.data[0]._id).not.toBe(res.body.data[0]._id);
+      expect(next.body.data[0].tuitionFeeUsd).toBeGreaterThanOrEqual(
+        res.body.data[0].tuitionFeeUsd
+      );
+    }
+  });
+
+  it("edge case: should reject a malformed cursor with 400", async () => {
+    const res = await request(app).get(
+      "/api/v2/programs?cursor=not-a-real-cursor"
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain("cursor");
+  });
+
+  it("edge case: should reject a sort v2 cannot paginate correctly with 400", async () => {
+    const res = await request(app).get("/api/v2/programs?sortBy=relevance");
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain("Unsupported sortBy");
+  });
+});
+
 describe("Security Hardening", () => {
   it("should send helmet security headers on API responses", async () => {
     const res = await request(app).get("/api/health");

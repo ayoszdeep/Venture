@@ -12,7 +12,7 @@ const SORT_OPTIONS = [
 const PAGE_SIZE = 6;
 
 /**
- * Live discovery panel driving the real GET /api/programs endpoint so the
+ * Live discovery panel driving the real GET /api/v1/programs endpoint so the
  * dashboard exercises the backend's filtering, sorting and pagination contract
  * rather than rendering static sample data.
  */
@@ -44,7 +44,7 @@ export default function ProgramExplorer() {
     let cancelled = false;
     setState("loading");
 
-    fetch(`/api/programs?${params.toString()}`)
+    fetch(`/api/v1/programs?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Request failed");
         return res.json();
@@ -136,7 +136,7 @@ export default function ProgramExplorer() {
 
       {state === "error" && (
         <p className="explorer-note">
-          Could not reach <code>GET /api/programs</code>. Start the backend on
+          Could not reach <code>GET /api/v1/programs</code>. Start the backend on
           port 4000 and seed the database.
         </p>
       )}

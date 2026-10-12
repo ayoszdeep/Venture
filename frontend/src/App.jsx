@@ -16,7 +16,7 @@ export default function App() {
   const [apiStatus, setApiStatus] = useState("checking");
 
   useEffect(() => {
-    fetch("/api/dashboard/overview")
+    fetch("/api/v1/dashboard/overview")
       .then((res) => {
         if (!res.ok) throw new Error("Backend not reachable");
         return res.json();

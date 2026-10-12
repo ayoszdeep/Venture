@@ -1,6 +1,6 @@
 ﻿const express = require("express");
 
-const { listPrograms } = require("../controllers/programController");
+const { listPrograms } = require("../../controllers/programController");
 
 const router = express.Router();
 

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
-const Program = require("../models/Program");
-const Student = require("../models/Student");
+
+const { programRepository, studentRepository } = require("../repositories");
 const HttpError = require("../utils/httpError");
 
 async function buildProgramRecommendations(studentId) {
@@ -8,7 +8,7 @@ async function buildProgramRecommendations(studentId) {
     throw new HttpError(400, "Invalid student ID format.");
   }
 
-  const student = await Student.findById(studentId).lean();
+  const student = await studentRepository.findByIdLean(studentId);
 
   if (!student) {
     throw new HttpError(404, "Student not found.");
@@ -157,7 +157,7 @@ async function buildProgramRecommendations(studentId) {
     $limit: 5,
   });
 
-  const recommendations = await Program.aggregate(pipeline);
+  const recommendations = await programRepository.aggregate(pipeline);
 
   return {
     data: {

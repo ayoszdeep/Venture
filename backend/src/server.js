@@ -1,16 +1,26 @@
-﻿const app = require("./app");
+const app = require("./app");
 const connectDatabase = require("./config/database");
 const env = require("./config/env");
+const logger = require("./config/logger");
 
 async function startServer() {
   await connectDatabase();
 
   app.listen(env.port, () => {
-    console.log(`Waygood evaluation API running on port ${env.port}`);
+    logger.info("Waygood evaluation API started", {
+      port: env.port,
+      env: env.nodeEnv,
+    });
   });
 }
 
 startServer().catch((error) => {
-  console.error("Failed to start server", error);
+  logger.error("Failed to start server", { error });
   process.exit(1);
+});
+
+// A rejected promise nobody handled would otherwise vanish silently and leave
+// the process running in a broken state.
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled promise rejection", { reason });
 });

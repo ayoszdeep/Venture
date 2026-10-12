@@ -1,28 +1,33 @@
-﻿const connectDatabase = require("../config/database");
-const Application = require("../models/Application");
-const Program = require("../models/Program");
-const Student = require("../models/Student");
-const University = require("../models/University");
+const connectDatabase = require("../config/database");
+const logger = require("../config/logger");
 const seedData = require("../data/seedData");
+const {
+  applicationRepository,
+  programRepository,
+  studentRepository,
+  universityRepository,
+} = require("../repositories");
 
 async function seed() {
   await connectDatabase();
 
   await Promise.all([
-    Application.deleteMany({}),
-    Program.deleteMany({}),
-    Student.deleteMany({}),
-    University.deleteMany({}),
+    applicationRepository.deleteAll(),
+    programRepository.deleteAll(),
+    studentRepository.deleteAll(),
+    universityRepository.deleteAll(),
   ]);
 
-  const universities = await University.insertMany(seedData.universities);
+  const universities = await universityRepository.insertMany(
+    seedData.universities
+  );
 
   const universityByName = universities.reduce((accumulator, university) => {
     accumulator[university.name] = university;
     return accumulator;
   }, {});
 
-  const programs = await Program.insertMany(
+  const programs = await programRepository.insertMany(
     seedData.programs.map((program) => ({
       ...program,
       university: universityByName[program.universityName]._id,
@@ -34,7 +39,7 @@ async function seed() {
     return accumulator;
   }, {});
 
-  const students = await Student.create(seedData.students);
+  const students = await studentRepository.createMany(seedData.students);
 
   const studentByEmail = students.reduce((accumulator, student) => {
     accumulator[student.email] = student;
@@ -57,13 +62,19 @@ async function seed() {
     };
   });
 
-  await Application.insertMany(applications);
+  await applicationRepository.insertMany(applications);
 
-  console.log("Seed completed successfully.");
+  logger.info("Seed completed successfully", {
+    universities: universities.length,
+    programs: programs.length,
+    students: students.length,
+    applications: applications.length,
+  });
+
   process.exit(0);
 }
 
 seed().catch((error) => {
-  console.error("Seed failed", error);
+  logger.error("Seed failed", { error });
   process.exit(1);
 });

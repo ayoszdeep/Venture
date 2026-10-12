@@ -2,19 +2,12 @@ const cors = require("cors");
 const express = require("express");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
-const morgan = require("morgan");
 
-const aiRoutes = require("./routes/aiRoutes");
-const applicationRoutes = require("./routes/applicationRoutes");
-const authRoutes = require("./routes/authRoutes");
-const dashboardRoutes = require("./routes/dashboardRoutes");
-const healthRoutes = require("./routes/healthRoutes");
-const programRoutes = require("./routes/programRoutes");
-const recommendationRoutes = require("./routes/recommendationRoutes");
-const universityRoutes = require("./routes/universityRoutes");
+const routes = require("./routes");
 const errorHandler = require("./middleware/errorHandler");
 const notFound = require("./middleware/notFound");
-const { apiLimiter, authLimiter } = require("./middleware/rateLimiter");
+const requestLogger = require("./middleware/requestLogger");
+const { apiLimiter } = require("./middleware/rateLimiter");
 
 const app = express();
 
@@ -37,18 +30,12 @@ app.use(express.json({ limit: "100kb" }));
 app.use(mongoSanitize());
 
 if (!isTestEnvironment) {
-  app.use(morgan("dev"));
+  app.use(requestLogger);
   app.use("/api", apiLimiter);
 }
 
-app.use("/api/health", healthRoutes);
-app.use("/api/auth", isTestEnvironment ? authRoutes : [authLimiter, authRoutes]);
-app.use("/api/universities", universityRoutes);
-app.use("/api/programs", programRoutes);
-app.use("/api/recommendations", recommendationRoutes);
-app.use("/api/applications", applicationRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/ai", aiRoutes);
+// All versions live in ./routes — see routes/index.js.
+app.use("/api", routes);
 
 app.use(notFound);
 app.use(errorHandler);

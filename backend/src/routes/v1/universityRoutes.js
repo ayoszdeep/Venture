@@ -3,7 +3,7 @@
 const {
   listPopularUniversities,
   listUniversities,
-} = require("../controllers/universityController");
+} = require("../../controllers/universityController");
 
 const router = express.Router();
 
