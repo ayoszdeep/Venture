@@ -357,9 +357,16 @@ The injection test confirms `{"email": {"$ne": null}}` gets rejected rather than
 
 ### React dashboard
 
-Live platform totals, a **Program Explorer** driving the real `/api/programs` with filters, sorting and pagination, and a **study planner** panel that logs in and renders the generated plan.
+Live platform totals, a **Program Explorer** driving the real `/api/v1/programs` with filters, sorting and pagination, and a **study planner** panel that logs in and renders the generated plan.
 
-**Tested with:** `npm run build` (clean, 32 modules) and clicking through it against the running backend.
+**Tested with:** `npm run build`, plus a server-side render of the whole component tree to prove it mounts without throwing:
+
+```
+RENDER OK — html length: 5658
+sections present: { hero, explorer, planner, countrySelect, loginPrefill } → all true
+```
+
+**Note on the JSX setup:** the starter had no `@vitejs/plugin-react`, so JSX compiled with the classic transform and every component that doesn't `import React` threw `React is not defined` at runtime — the build succeeded regardless, which is exactly how that bug hides. Added the plugin, which switches to the automatic JSX runtime and brings Fast Refresh with it.
 
 **Why:** the dashboard originally rendered static sample data, which proves nothing. Driving the actual endpoints means the response shapes are verified by something other than tests.
 

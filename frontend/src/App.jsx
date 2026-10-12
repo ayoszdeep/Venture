@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import ApiLog from "./components/ApiLog.jsx";
 import InfoCard from "./components/InfoCard.jsx";
 import ProgramExplorer from "./components/ProgramExplorer.jsx";
 import SignalStrip from "./components/SignalStrip.jsx";
 import SpotlightList from "./components/SpotlightList.jsx";
+import StudentJourney from "./components/StudentJourney.jsx";
 import StudyPlanPanel from "./components/StudyPlanPanel.jsx";
 import {
   assignmentSignals,
@@ -98,6 +100,22 @@ export default function App() {
             <InfoCard key={card.title} title={card.title} body={card.body} />
           ))}
         </div>
+      </section>
+
+      <section className="section">
+        <div className="section-heading">
+          <p className="eyebrow">End-to-end student journey</p>
+          <h2>Walk the whole flow against the live backend</h2>
+        </div>
+        <StudentJourney />
+      </section>
+
+      <section className="section">
+        <div className="section-heading">
+          <p className="eyebrow">Request trace</p>
+          <h2>Every call this page makes</h2>
+        </div>
+        <ApiLog />
       </section>
 
       <section className="section">
